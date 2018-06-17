@@ -896,7 +896,7 @@ _g.make_proton=function(self,target)
 	pt.target=target
 end
 
-local all_actors=json_parse'{"plyr":{"hp":5,"safe_t":0,"energy":1,"energy_t":0,"boost":0,"dboost":1,"acc":0.2,"model":"xwing","roll":0,"pitch":0,"laser_i":0,"fire_t":0,"fire":"make_laser","lock_t":0,"proton_t":0,"proton_ammo":4,"fire_proton":"make_proton","side":"good_side","draw":"draw_plyr","update":"update_plyr","hit":"hit_plyr","die":"die_plyr"},"patrol":{"hp":10,"acc":0.2,"g":0,"overg_t":0,"rnd":{"model":["xwing","xwing","ywing"]},"side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"tie":{"sfx":5,"hp":4,"acc":0.4,"g":0,"overg_t":0,"model":"tie","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor","rnd":{"id":[0,128]}},"generator":{"waypt":true,"hp":10,"model":"generator","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"vent":{"waypt":true,"hp":2,"model":"vent","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"mfalcon":{"hp":8,"acc":0.25,"g":0,"overg_t":0,"model":"mfalcon","side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"turret":{"hp":2,"model":"turret","side":"bad_side","local_t":0,"pause_t":0,"fire_t":0,"laser_i":0,"fire":"make_laser","update":"update_turret","hit":"hit_npc","die":"die_actor"},"ground_junk":{"hp":2,"model":"junk2","side":"bad_side","update":"update_junk","hit":"hit_npc","die":"die_actor"},"exit":{"draw":"nop","update":"update_exit","waypt":true},"vador":{"sfx":5,"hp":40,"acc":0.3,"g":0,"overg_t":0,"model":"tiex1","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor"}}'
+local all_actors=json_parse'{"plyr":{"hp":5,"safe_t":0,"energy":1,"energy_t":0,"boost":0,"dboost":1,"acc":0.4,"model":"xwing","roll":0,"pitch":0,"laser_i":0,"fire_t":0,"fire":"make_laser","lock_t":0,"proton_t":0,"proton_ammo":4,"fire_proton":"make_proton","side":"good_side","draw":"draw_plyr","update":"update_plyr","hit":"hit_plyr","die":"die_plyr"},"patrol":{"hp":10,"acc":0.2,"g":0,"overg_t":0,"rnd":{"model":["xwing","xwing","ywing"]},"side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"tie":{"sfx":5,"hp":4,"acc":0.8,"g":0,"overg_t":0,"model":"tie","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor","rnd":{"id":[0,128]}},"generator":{"waypt":true,"hp":10,"model":"generator","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"vent":{"waypt":true,"hp":2,"model":"vent","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"mfalcon":{"hp":8,"acc":0.25,"g":0,"overg_t":0,"model":"mfalcon","side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"turret":{"hp":2,"model":"turret","side":"bad_side","local_t":0,"pause_t":0,"fire_t":0,"laser_i":0,"fire":"make_laser","update":"update_turret","hit":"hit_npc","die":"die_actor"},"ground_junk":{"hp":2,"model":"junk2","side":"bad_side","update":"update_junk","hit":"hit_npc","die":"die_actor"},"exit":{"draw":"nop","update":"update_exit","waypt":true},"vador":{"sfx":5,"hp":40,"acc":0.3,"g":0,"overg_t":0,"model":"tiex1","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor"}}'
 
 function make_actor(src,p,q)
 	-- instance
@@ -1054,7 +1054,7 @@ _g.draw_part=function(self,x,y,z,w)
 			line(x,y,x1,y1,time_t%2==0 and 7 or self.c)
 		end
 	elseif self.kind==1 then
-  circfill(x,y,self.r*w,self.c)
+  --circfill(x,y,self.r*w,self.c)
 	elseif self.kind==2 then
 		circfill(x,y,self.r*w,7)
 	elseif self.kind==3 then
@@ -1281,10 +1281,10 @@ function control_plyr(self)
 	local pitch,roll=0,0
 	if plyr_playing then
 	 -- ⬅️⬆️⬇️➡️🅾️❎
-		if(btn(⬅️)) roll=-1 turn_t+=1
-		if(btn(➡️)) roll=1 turn_t+=1
-		if(btn(⬆️)) pitch=-1
-		if(btn(⬇️)) pitch=1
+		if(btn(⬅️)) roll=-2 turn_t+=1
+		if(btn(➡️)) roll=2 turn_t+=1
+		if(btn(⬆️)) pitch=-2
+		if(btn(⬇️)) pitch=2
 		-- flip y-axis?
 		pitch*=invert_y
 		
@@ -1322,9 +1322,9 @@ function control_plyr(self)
 		self.pitch-=pitch/396
 	end
 	if plyr.boost>0 then
-		self.pitch=mid(self.pitch,-0.005,0.005)
+		self.pitch=mid(self.pitch,-0.01,0.01)
 	else
-		self.pitch=mid(self.pitch,-1/256,1/256)
+		self.pitch=mid(self.pitch,-1/128,1/128)
 	end
 	local q=make_q(v_right,self.pitch)
 	q_x_q(plyr.q,q)
@@ -1429,16 +1429,15 @@ function draw_radar()
 	end
 	
 	-- draw lock
-	if plyr.target then
+	if plyr.target and plyr.lock_t>30 then
 		local p=plyr.target.pos
 		local x,y,z,w=cam:project(p[1],p[2],p[3])
 		if z>0 then
-			local s=plyr.lock_t>30 and 56 or 40
 			w=max(w,4)
-			spr(s,x-w,y-w)
-			spr(s,x+w-8,y-w,1,1,true)
-			spr(s,x-w,y+w-8,1,1,false,true)
-			spr(s,x+w-8,y+w-8,1,1,true,true)
+			spr(40,x-w,y-w)
+			spr(40,x+w-8,y-w,1,1,true)
+			spr(40,x-w,y+w-8,1,1,false,true)
+			spr(40,x+w-8,y+w-8,1,1,true,true)
 			pal()
 		end
 	end
@@ -1508,7 +1507,7 @@ function start_screen:update()
 end
 
 local title_m=make_m(0,0,0)
-local all_help=json_parse'[{"msg":"⬅️⬆️⬇️➡️: flight control","x":20},{"msg":"menu: invert y-axis","x":30},{"msg":"❎: laser / 🅾️: torpedo","x":20},{"msg":"🅾️: speed boost","x":34},{"msg":"⬇️[p2]: rear view","x":30},{"msg":"⬆️[p2]: external view","x":23}]'
+local all_help=json_parse'[{"msg":"⬅️⬆️⬇️➡️: flight control","x":20},{"msg":"menu: invert y-axis","x":30},{"msg":"❎: laser / 🅾️+lock: torpedo","x":12},{"msg":"🅾️: speed boost","x":34},{"msg":"⬇️[p2]: rear view","x":30},{"msg":"⬆️[p2]: external view","x":23}]'
 function start_screen:draw()
 	cam.pos[3]+=0.1
 	cam:update()
@@ -1631,7 +1630,7 @@ function game_screen:draw()
 	end
 end
 
-function _update60()
+function _update()
 	time_t+=1
 	futures_update(before_update)
 	
@@ -1646,7 +1645,7 @@ function _draw()
 	cur_screen:draw()
 	
 	-- if(draw_stats) draw_stats()
-	-- print(flr(100*stat(1)).."% @"..stat(7).."fps",2,2,7)
+	print(flr(100*stat(1)).."% @"..stat(7).."fps",2,2,7)
 end
 
 
@@ -1675,7 +1674,7 @@ function _init()
 	]]
 	
 	-- stars
-	for i=1,48 do
+	for i=1,96 do
 		add(stars,make_rnd_v(32))
 	end
 		
@@ -2023,7 +2022,6 @@ f7e708b9a8080000b7307010506010405010304010102010207010601010a09010d08010c0b010e0
 7110b1c110627210e35310819110728210829210615110514110e2f210413110021210312110c2d210f1021092a210e1f110f20310710110211110d2e210b781
 10a2b210b2c210f00310d1e110c1d110425210324210223210122210637310b3c31013c31073831083931093a310132310a3b310233310536310334310a4e510
 55f510e5f510344410f30410243410d4e410f34510657510e4f410142410c5d51094a410354510445410041410556510d5b41095a510a5b510859510758510b5
-
 __map__
 5c014c4d014b4c015253015152015051014f50014849014748014647014546016162016566017677017172016465017273017071016364016667016e6f016768016f70016b7a016a6b01696a016c6d016061017576016062017577017a6e016974017978016379016d73016c74016878011110010f7b01343d01061f201d1d10
 1f010c869a8d869a967a9a8d7a9a969080909080707080707080908da08d8da07973a07973a08d050904090b0a080604030d08060804070e0b0c070405060a0e08040c090d040580a080a083806083808088618083a00e020101040301050600050800060700060a00070800090a00090c000a0b000b0c00080c00050900070b
@@ -2052,7 +2050,7 @@ __map__
 91638c889689967a98948c9d8883889f8c9d788996969c8e7a9d8c889d74889c727a869894936d919393917a0401000302000107000802000503000604000607000805000a0900090c000b0a000b0c00040a000b06000c07000901000e0d00100d000f0e00100f000810000f0500020d00030e00111200121300131400141500
 151600190800081300121700181900191a001a1b00162e001708001718001c1d001d1e001e1f001f1b001a1e001d1900181c00202100212200222300232400211d001c20001f2300221e001b0300031500072700210700252000262700272800282900250700021a002625002a2b002b2c002c2d002e2d00292d002c2800272b
 002a2600112a00142c002b1300122a00152d00111700111800111c00112000112500112600051400230400042900062800012200302f013130013231013233012f36013433013534013635013035013134010e39010a3801373901383a013c3b013d3c013e3d013e3f013b4201403f014140014241013c41013d40011b160024
-2e002924002404002e1f00031600162401373a013a2401371601
+2e002924002404002e1f00031600162401373a013a2401371601000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 00020000085500d650086500955009550086500955008550086500955008650085500865008550076500855008550076500855007650085500865008650075500765007650076500755008650096500855009550
 000200002c060350503b0403e0403365029060216501e0501665015040116400d0400b6300a030076300803007630060300463004030036300263002640016400164001640016300163001630016300163001620
