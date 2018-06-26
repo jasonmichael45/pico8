@@ -699,12 +699,12 @@ _g.update_flying_npc=function(self)
 	-- weight move ahead
 	v_scale(force,5)
 
-	local follow_scale=1-smoothstep(self.overg_t/32)
+	local stamina=1-smoothstep(self.overg_t/32)
 	if self.target and not self.target.disabled then
 
 		-- enemy: get in sight
 		can_fire,target_pos=true,{rnd()-0.5,rnd()-0.5,-15}
-		v_add(force,follow(pos,self.target,target_pos),follow_scale)
+		v_add(force,follow(pos,self.target,target_pos),stamina)
 	else
 		-- search for target
 		self.target=seek(self,fwd,24)
@@ -715,7 +715,7 @@ _g.update_flying_npc=function(self)
 		self.wander_t=time_t+120+rnd(60)
 	end
 	-- add some 'noise' even when following a target
-	v_add(force,follow(pos,self,self.wander),self.target and 0.2 or 1)
+	v_add(force,follow(pos,self,self.wander),self.target and 0 or 1)
  -- avoid other actors
 	v_add(force,avoid(self,pos,8))
 
@@ -730,7 +730,7 @@ _g.update_flying_npc=function(self)
  -- try to align w/ target
 	local up=m_up(m)
 	if self.target then
-		v_add(up,m_up(self.target.m),follow_scale*0.2)
+		v_add(up,m_up(self.target.m),stamina*0.2)
 	end
 	m=make_m_toward(pos,up)
 	-- constant speed
@@ -744,12 +744,12 @@ _g.update_flying_npc=function(self)
 	
 	-- evaluate stress
 	v_normz(force)
-	self.g=1-abs(v_dot(force,fwd))
+	local g=1-abs(v_dot(force,fwd))
  
-	if self.g>0.002 then
+	if g>0.002 then
 		self.overg_t=min(self.overg_t+2,64)
 	end
-	self.overg_t*=0.96
+	self.overg_t*=0.98
 
 	-- fire solution?
 	if self.model.wp and can_fire and self.fire_t<time_t and in_cone(self.pos,self.target.pos,fwd,0.92,24) then
@@ -786,7 +786,7 @@ _g.update_plyr=function(self)
 
 	-- damping
 	self.roll*=0.9
-	self.pitch*=0.9
+	self.pitch*=0.92
 	self.boost*=self.dboost
 	
 	-- engine trail
@@ -1070,7 +1070,8 @@ _g.draw_part=function(self,x,y,z,w)
 	elseif self.kind==8 then
 		color(self.c)
 		if w>1 then
- 		for _,v in pairs({{-3.24,0,-5.04},{3.24,0,-5.04}}) do
+ 		for _,v in pairs(self.e) do
+ 			v=v_clone(v)
   		m_x_v(self.m,v)
   		local x1,y1,z1,w1=cam:project(v[1],v[2],v[3])
   		if z>0 and z1>0 then
@@ -1081,7 +1082,7 @@ _g.draw_part=function(self,x,y,z,w)
 	end
 end
 
-all_parts=json_parse'{"laser":{"rnd":{"dly":[80,110]},"acc":3,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
+all_parts=json_parse'{"laser":{"rnd":{"dly":[80,110]},"acc":3,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
 
 function make_part(part,p,c)
 	local pt=add(parts,clone(all_parts[part],{pos=v_clone(p),draw=_g.draw_part,c=c}))
@@ -1168,7 +1169,7 @@ function init_ground()
 	for i=0,127 do
 		for j=0,127 do
 		 -- force turret!
-			local r=(i%124==2 and j%8==0) and 1 or rnd()
+			local r=(i%124==2 and j%16==0) and 1 or rnd()
 			if r>0.995 then
 				make_ground_actor(i,j,"turret")
 			elseif r>0.98 then
@@ -1183,10 +1184,11 @@ end
 
 function update_ground()
 	ground_actors={}
-	
 	-- don't activate ground actors
 	if(not ground_level) return
+	
 	local pos=plyr and plyr.pos or cam.pos
+	-- crude viz check
 	if(pos[2]>ground_level+96) return
 
 	local i0,j0=flr(pos[1]/ground_scale),flr(pos[3]/ground_scale)
@@ -1292,26 +1294,23 @@ function control_plyr(self)
 			set_view(not cockpit_view)
 		end
 		-- behind look?
-		cam.flip=false
-		if btn(3,1) then
-			cam.flip=true
-		end
+		cam.flip=btn(3,1)
 
 		-- boost 
 		if btn(4) then
-			plyr.boost=min(plyr.boost+0.01,0.1)
-		end	
+			plyr.boost=min(plyr.boost*1.02,plyr.acc)
+		end
 	end
 	
 	-- flat turn
-	turn_t=min(turn_t,8)
+	turn_t=min(turn_t,16)
 	if roll!=0 then
 		self.roll=-roll/256
 	else
 		turn_t=0
 	end
  	self.roll=mid(self.roll,-0.01,0.01)
-	local r=turn_t/8
+	local r=turn_t/16
 	local q=make_q(v_up,(1-r)*roll/128)
 	q_x_q(plyr.q,q)
 	q=make_q(v_fwd,-r*roll/128)
@@ -1320,11 +1319,9 @@ function control_plyr(self)
 	if pitch!=0 then
 		self.pitch-=pitch/396
 	end
-	if plyr.boost>0 then
-		self.pitch=mid(self.pitch,-0.005,0.005)
-	else
-		self.pitch=mid(self.pitch,-0.004,0.004)
-	end
+	local pitch_max=plyr.boost>0 and 0.002 or 0.004
+	self.pitch=mid(self.pitch,-pitch_max,pitch_max)
+	
 	local q=make_q(v_right,self.pitch)
 	q_x_q(plyr.q,q)
 	
@@ -1611,7 +1608,7 @@ function game_screen:draw()
 					x+=3
 				end
 				-- engines
-				local p=(plyr.acc+plyr.boost)/0.3
+				local p=0.5*(plyr.acc+plyr.boost)/plyr.acc
 				fillp(0x5555)
 				rectfill(82,120,82+23*p,123,9)
 				fillp()
