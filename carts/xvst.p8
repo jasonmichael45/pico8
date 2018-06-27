@@ -682,32 +682,29 @@ function update_engines(self)
 	end
 end
 
-function firstorderintercepttime(shotspeed,trp,trv)
+function intercept(shotspeed,trp,trv)
 	local v2=v_dot(trv,trv)
 	if(v2<0.001) return 0
  
 	local a=v2-shotspeed*shotspeed
- 
+	local b=2*v_dot(trv,trp)
+	
 	--handle similar velocities
 	if abs(a)<0.001 then
-		return max(-v_dot(trp,trp)/(2*v_dot(trv,trp)))
- end
+		return max(-v_dot(trp,trp)/b)
+	end
 
-	local b=2*v_dot(trv,trp)
 	local c=v_dot(trp,trv)
 	local d=b*b-4*a*c
- if(d<=0) return 0
+	if(d<=0) return 0
  
 	d=sqrt(d)
 	local t1=(-b+d)/(2*a)
- local t2=(-b-d)/(2*a)
+	local t2=(-b-d)/(2*a)
 	if t1>0 then
 		return t2>0 and min(t1,t2) or t1
-	else
-		return max(t2) --don't shoot back in time
 	end
-
-	return max(-b/(2*a)) --don't shoot back in time
+	return max(t2) --don't shoot back in time
 end
 
 _g.update_flying_npc=function(self)
@@ -728,7 +725,7 @@ _g.update_flying_npc=function(self)
 	-- weight move ahead
 	v_scale(force,5)
 
-	local stamina=1-smoothstep(self.overg_t/32)
+	local stamina=1-smoothstep(self.overg_t/64)
 	if self.target and not self.target.disabled then
 
 		-- enemy: get in sight
@@ -776,7 +773,7 @@ _g.update_flying_npc=function(self)
 	local g=1-abs(v_dot(force,fwd))
  
 	if g>0.002 then
-		self.overg_t=min(self.overg_t+2,64)
+		self.overg_t=min(self.overg_t+2,256)
 	end
 	self.overg_t*=0.98
 
@@ -787,15 +784,16 @@ _g.update_flying_npc=function(self)
 
  -- estimate position
 	local trp=v_clone(self.pos)
- v_add(trp,plyr.pos,-1)
- local trv=v_clone(fwd)
- v_scale(trv,self.acc)
- v_add(trv,m_fwd(plyr.m),-plyr.acc)
-	local lead_t=firstorderintercepttime(all_parts["laser"].acc,trp,trv)
-	 
+	v_add(trp,plyr.pos,-1)
+	local trv=v_clone(fwd)
+	v_scale(trv,self.acc)
+	v_add(trv,m_fwd(plyr.m),-plyr.acc)
+	local lead_t=intercept(all_parts["laser"].acc,trp,trv)
+	
 	self.lead_pos=v_clone(self.pos)
-	v_add(self.lead_pos,fwd,lead_t)		
-
+	v_add(self.lead_pos,trv,lead_t)
+	self.lead_t=lead_t
+	
 	return true
 end
 
@@ -933,7 +931,7 @@ _g.make_proton=function(self,target)
 	make_blt(self,wp,p,v).target=target
 end
 
-local all_actors=json_parse'{"plyr":{"hp":5,"safe_t":0,"energy":1,"energy_t":0,"boost":0,"dboost":1,"acc":0.2,"model":"xwing","roll":0,"pitch":0,"laser_i":0,"fire_t":0,"fire":"make_laser","lock_t":0,"proton_t":0,"proton_ammo":4,"fire_proton":"make_proton","side":"good_side","draw":"draw_plyr","update":"update_plyr","hit":"hit_plyr","die":"die_plyr"},"patrol":{"hp":10,"acc":0.2,"g":0,"overg_t":0,"rnd":{"model":["xwing","xwing","ywing"]},"side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"tie":{"sfx":5,"hp":4,"acc":0.4,"g":0,"overg_t":0,"model":"tie","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor","rnd":{"id":[0,128]}},"generator":{"waypt":true,"hp":10,"model":"generator","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"vent":{"waypt":true,"hp":12,"model":"vent","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"mfalcon":{"hp":8,"acc":0.25,"g":0,"overg_t":0,"model":"mfalcon","side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"turret":{"hp":2,"model":"turret","side":"bad_side","local_t":0,"pause_t":0,"fire_t":0,"laser_i":0,"fire":"make_laser","update":"update_turret","hit":"hit_npc","die":"die_actor"},"ground_junk":{"hp":2,"model":"junk2","side":"bad_side","update":"update_junk","hit":"hit_npc","die":"die_actor"},"exit":{"draw":"nop","update":"update_exit","waypt":true},"vador":{"sfx":5,"hp":40,"acc":0.3,"g":0,"overg_t":0,"model":"tiex1","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor"}}'
+local all_actors=json_parse'{"plyr":{"hp":5,"safe_t":0,"energy":1,"energy_t":0,"boost":0,"dboost":1,"acc":0.2,"model":"xwing","roll":0,"pitch":0,"laser_i":0,"fire_t":0,"fire":"make_laser","lock_t":0,"proton_t":0,"proton_ammo":4,"fire_proton":"make_proton","side":"good_side","draw":"draw_plyr","update":"update_plyr","hit":"hit_plyr","die":"die_plyr"},"patrol":{"hp":10,"acc":0.2,"g":0,"overg_t":0,"rnd":{"model":["xwing","xwing","ywing"]},"side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"tie":{"hp":4,"acc":0.4,"g":0,"overg_t":0,"model":"tie","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor","rnd":{"id":[0,128]}},"generator":{"waypt":true,"hp":10,"model":"generator","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"vent":{"waypt":true,"hp":12,"model":"vent","side":"bad_side","update":"nop","hit":"hit_npc","die":"die_actor"},"mfalcon":{"hp":8,"acc":0.25,"g":0,"overg_t":0,"model":"mfalcon","side":"good_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_npc","die":"die_actor"},"turret":{"hp":2,"model":"turret","side":"bad_side","local_t":0,"pause_t":0,"fire_t":0,"laser_i":0,"fire":"make_laser","update":"update_turret","hit":"hit_npc","die":"die_actor"},"ground_junk":{"hp":2,"model":"junk2","side":"bad_side","update":"update_junk","hit":"hit_npc","die":"die_actor"},"exit":{"draw":"nop","update":"update_exit","waypt":true},"vador":{"hp":40,"acc":0.3,"g":0,"overg_t":0,"model":"tiex1","side":"bad_side","wander_t":0,"lock_t":0,"laser_i":0,"fire_t":0,"fire":"make_laser","update":"update_flying_npc","hit":"hit_flying_npc","die":"die_actor"}}'
 
 function make_actor(src,p,q)
 	-- instance
@@ -1125,7 +1123,7 @@ _g.draw_part=function(self,x,y,z,w)
 	]]
 end
 
-all_parts=json_parse'{"laser":{"rnd":{"dly":[110,120]},"acc":5,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
+all_parts=json_parse'{"laser":{"rnd":{"dly":[110,120]},"acc":1,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
 
 function make_part(part,p,c)
 	local pt=add(parts,clone(all_parts[part],{pos=v_clone(p),draw=_g.draw_part,c=c}))
@@ -1476,6 +1474,7 @@ function draw_instr()
 			spr(40,x+w-8,y-w,1,1,true)
 			spr(40,x-w,y+w-8,1,1,false,true)
 			spr(40,x+w-8,y+w-8,1,1,true,true)
+			print(60*plyr.target.lead_t.."s",x,y-w-8,6)
 		end
 	end
 	
