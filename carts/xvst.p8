@@ -443,6 +443,7 @@ function draw_actor(self,x,y,z,w)
 	s=s.." "..self.g.."["..(flr(10*self.overg_t)/10).."]"
 	print(s,x-8,y-w-8,recover and 8 or 11)
 	]]
+	
 	-- distance culling
 	if w>1 then
 		draw_model(self.model,self.m,x,y,z,w)
@@ -681,6 +682,34 @@ function update_engines(self)
 	end
 end
 
+function firstorderintercepttime(shotspeed,trp,trv)
+	local v2=v_dot(trv,trv)
+	if(v2<0.001) return 0
+ 
+	local a=v2-shotspeed*shotspeed
+ 
+	--handle similar velocities
+	if abs(a)<0.001 then
+		return max(-v_dot(trp,trp)/(2*v_dot(trv,trp)))
+ end
+
+	local b=2*v_dot(trv,trp)
+	local c=v_dot(trp,trv)
+	local d=b*b-4*a*c
+ if(d<=0) return 0
+ 
+	d=sqrt(d)
+	local t1=(-b+d)/(2*a)
+ local t2=(-b-d)/(2*a)
+	if t1>0 then
+		return t2>0 and min(t1,t2) or t1
+	else
+		return max(t2) --don't shoot back in time
+	end
+
+	return max(-b/(2*a)) --don't shoot back in time
+end
+
 _g.update_flying_npc=function(self)
 	-- npc still in range?
 	if plyr and sqr_dist(self.pos,plyr.pos)>9216 then
@@ -715,7 +744,7 @@ _g.update_flying_npc=function(self)
 		self.wander_t=time_t+120+rnd(60)
 	end
 	-- add some 'noise' even when following a target
-	v_add(force,follow(pos,self,self.wander),self.target and 0 or 1)
+	v_add(force,follow(pos,self,self.wander),self.target and 0.2 or 1)
  -- avoid other actors
 	v_add(force,avoid(self,pos,8))
 
@@ -755,6 +784,17 @@ _g.update_flying_npc=function(self)
 	if self.model.wp and can_fire and self.fire_t<time_t and in_cone(self.pos,self.target.pos,fwd,0.92,24) then
  	self:fire(self.target.pos)
 	end
+
+ -- estimate position
+	local trp=v_clone(self.pos)
+ v_add(trp,plyr.pos,-1)
+ local trv=v_clone(fwd)
+ v_scale(trv,self.acc)
+ v_add(trv,m_fwd(plyr.m),-plyr.acc)
+	local lead_t=firstorderintercepttime(all_parts["laser"].acc,trp,trv)
+	 
+	self.lead_pos=v_clone(self.pos)
+	v_add(self.lead_pos,fwd,lead_t)		
 
 	return true
 end
@@ -861,7 +901,7 @@ _g.make_laser=function(self,target)
 	local wp=self.model.wp
 	local i=self.laser_i%#wp.pos+1
 	-- rebase laser in world space
-	local p=v_clone(wp.pos[i])
+	local p={0,0,0}--v_clone(wp.pos[i])
 	m_x_v(self.m,p)
 	-- direction override?
 	local v
@@ -1052,6 +1092,8 @@ _g.draw_part=function(self,x,y,z,w)
 		end
 	elseif self.kind==1 then
   circfill(x,y,self.r*w,self.c)
+	end
+	--[[
 	-- proton head
 	elseif self.kind==3 then
 		-- light effect
@@ -1080,9 +1122,10 @@ _g.draw_part=function(self,x,y,z,w)
  		end
  	end
 	end
+	]]
 end
 
-all_parts=json_parse'{"laser":{"rnd":{"dly":[80,110]},"acc":3,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
+all_parts=json_parse'{"laser":{"rnd":{"dly":[110,120]},"acc":5,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
 
 function make_part(part,p,c)
 	local pt=add(parts,clone(all_parts[part],{pos=v_clone(p),draw=_g.draw_part,c=c}))
@@ -1263,7 +1306,7 @@ function find_closest_tgt(fwd,objs,min_dist,target)
 	for _,a in pairs(objs) do
 		if a.hp and band(a.side,plyr.side)==0 then
 			local d=sqr_dist(a.pos,plyr.pos)
-			if d>2 and d<min_dist and in_cone(plyr.pos,a.pos,fwd,0.98,64) then
+			if d>2 and d<min_dist and in_cone(plyr.pos,a.pos,fwd,0.5,64) then --0.98,64) then
 				min_dist,target=d,a
 			end
 			-- collision?
@@ -1298,7 +1341,7 @@ function control_plyr(self)
 
 		-- boost 
 		if btn(4) then
-			plyr.boost=min(plyr.boost*1.02,plyr.acc)
+			plyr.boost=min(plyr.boost*1.1,plyr.acc)
 		end
 	end
 	
@@ -1334,7 +1377,6 @@ function control_plyr(self)
 	self.m=m
 	
 	if plyr_playing then
-  local prev_target=plyr.target
  	-- find nearest enemy (in sight)
  	local min_dist,target=find_closest_tgt(fwd,actors)
  	-- find nearest ground actors
@@ -1356,8 +1398,8 @@ function control_plyr(self)
  		plyr.energy=0
  	end
  		
- 	if self.fire_t<time_t and btn(5) then
- 		if(plyr.energy>0.08) plyr:fire(target and target.pos or nil)
+ 	if self.fire_t<time_t and btn(5) then 		
+ 		if(plyr.energy>0.08) plyr:fire(target and target.lead_pos or nil)
  		plyr.energy=max(plyr.energy-0.08)
  	end
  end
@@ -1408,7 +1450,7 @@ function draw_radar_dots(objs)
 end
 
 function draw_instr()
-	clip(54,105,22,22)
+	clip(54,105,20,22)
 	draw_radar_dots(ground_actors)
 	draw_radar_dots(actors)
 	clip()
@@ -1426,7 +1468,7 @@ function draw_instr()
 	
 	-- draw lock
 	if plyr.target and plyr.lock_t>30 then
-		local p=plyr.target.pos
+		local p=plyr.target.lead_pos
 		local x,y,z,w=cam:project(p[1],p[2],p[3])
 		if z>0 then
 			w=max(w,4)
@@ -1503,7 +1545,7 @@ function start_screen:update()
 end
 
 local title_m=make_m(0,0,0)
-local all_help=json_parse'[{"msg":"⬅️⬆️⬇️➡️: flight control","x":20},{"msg":"menu: invert y-axis","x":30},{"msg":"❎: laser / 🅾️+lock: torpedo","x":12},{"msg":"🅾️: speed boost","x":34},{"msg":"⬇️[p2]: rear view","x":30},{"msg":"⬆️[p2]: external view","x":23}]'
+--local all_help=json_parse'[{"msg":"⬅️⬆️⬇️➡️: flight control","x":20},{"msg":"menu: invert y-axis","x":30},{"msg":"❎: laser / 🅾️+lock: torpedo","x":12},{"msg":"🅾️: speed boost","x":34},{"msg":"⬇️[p2]: rear view","x":30},{"msg":"⬆️[p2]: external view","x":23}]'
 function start_screen:draw()
 	cam.pos[3]+=0.1
 	cam:update()
@@ -1513,9 +1555,11 @@ function start_screen:draw()
 	print("freds72 presents",32,4,1)
 	print("attack on the death star",20,78,12)
 	
+	--[[
 	local i=flr(time_t/128)%#all_help
 	local h=all_help[i+1]
 	print(h.msg,h.x,108,3)
+	]]
 	
 	if (start_screen_starting and time_t%2==0) or time_t%24<12 then
 		print("press start",44,118,11)
