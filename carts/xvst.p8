@@ -276,7 +276,7 @@ function v_dot(a,b)
 end
 function v_normz(v)
 	local d=v_dot(v,v)
-	if d>0.001 then
+	if d>0 then
 		d=sqrt(d)
 		v[1]/=d
 		v[2]/=d
@@ -340,11 +340,11 @@ function make_m(x,y,z)
 end
 
 function make_m_toward(z,up)
- 	local x=make_v_cross(up,z)
+ local x=make_v_cross(up,z)
 	-- aligned?
-	if v_dot(x,x)<0.001 then
+	if v_dot(x,x)<0.0001 then
 		-- up and z //
-		if abs(up[3])==1 then
+		if abs(up[3])>0.99 then
 			z[1]+=0.01
 		else
 			z[3]+=0.01
@@ -360,7 +360,7 @@ function make_m_toward(z,up)
 	return { 
 		x[1],x[2],x[3],0,
 		y[1],y[2],y[3],0,
-  		z[1],z[2],z[3],0,
+  z[1],z[2],z[3],0,
 		0,0,0,1}
 end
 -- quaternion
@@ -430,9 +430,9 @@ local dither_pat=json_parse'[0b1111111111111111,0b0111111111111111,0b01111111110
 
 function draw_actor(self,x,y,z,w)
 	--[[
-	local s=""
+	local s=""	
 	local recover=false
-	if self.overg_t>=32 then
+	if self.overg_t>=25 then
 		s,recover=s.."⧗",true
 	end
 	if self.target then
@@ -440,10 +440,9 @@ function draw_actor(self,x,y,z,w)
 	elseif not self.target then
 		s=s.."?"
 	end
-	s=s.." "..self.g.."["..(flr(10*self.overg_t)/10).."]"
-	print(s,x-8,y-w-8,recover and 8 or 11)
+	s=s.."\n"..self.g.."["..self.overg_t.."]"
+	print(s,x-8,y-w-16,recover and 8 or 11)
 	]]
-	
 	-- distance culling
 	if w>1 then
 		draw_model(self.model,self.m,x,y,z,w)
@@ -682,6 +681,7 @@ function update_engines(self)
 	end
 end
 
+--[[
 function intercept(shotspeed,trp,trv)
 	local v2=v_dot(trv,trv)
 	if(v2<0.001) return 0
@@ -706,6 +706,7 @@ function intercept(shotspeed,trp,trv)
 	end
 	return max(t2) --don't shoot back in time
 end
+]]
 
 _g.update_flying_npc=function(self)
 	-- npc still in range?
@@ -720,20 +721,22 @@ _g.update_flying_npc=function(self)
 	-- to world
 	m_x_v(m,pos)
 	-- forces
-	local can_fire,fwd=false,m_fwd(m)
-	local force=v_clone(fwd)
+	local can_fire,prev_fwd=false,m_fwd(m)
+	local force=v_clone(prev_fwd)
 	-- weight move ahead
 	v_scale(force,5)
 
-	local stamina=1-smoothstep(self.overg_t/64)
+	local stamina=1-smoothstep(self.overg_t/8)
 	if self.target and not self.target.disabled then
-
 		-- enemy: get in sight
-		can_fire,target_pos=true,{rnd()-0.5,rnd()-0.5,-15}
+		local aoa=v_clone(self.pos)
+		v_add(aoa,self.target.pos,-1)
+		local facing=v_dot(prev_fwd,aoa)
+		can_fire,target_pos=true,{rnd()-0.5,rnd()-0.5,facing>0 and -15 or 5}
 		v_add(force,follow(pos,self.target,target_pos),stamina)
 	else
 		-- search for target
-		self.target=seek(self,fwd,24)
+		self.target=seek(self,prev_fwd,24)
 	end
 	if not self.wander or self.wander_t<time_t then
 		-- pick a random location
@@ -742,21 +745,22 @@ _g.update_flying_npc=function(self)
 	end
 	-- add some 'noise' even when following a target
 	v_add(force,follow(pos,self,self.wander),self.target and 0.2 or 1)
- -- avoid other actors
-	v_add(force,avoid(self,pos,8))
+ 	-- avoid other actors
+	v_add(force,avoid(self,pos,8),2)
 
 	-- clamp acceleration
-	v_clamp(force,self.acc)
+	v_clamp(force,0.03)
 	
 	-- update orientation
 	v_add(pos,force)
 	v_add(pos,self.pos,-1)
 	v_normz(pos)
 	
- -- try to align w/ target
+ 	-- try to align w/ target
 	local up=m_up(m)
 	if self.target then
 		v_add(up,m_up(self.target.m),stamina*0.2)
+		v_normz(up)
 	end
 	m=make_m_toward(pos,up)
 	-- constant speed
@@ -769,13 +773,13 @@ _g.update_flying_npc=function(self)
 	update_engines(self)
 	
 	-- evaluate stress
-	v_normz(force)
-	local g=1-abs(v_dot(force,fwd))
+ self.g=1-abs(v_dot(prev_fwd,fwd))
  
-	if g>0.002 then
-		self.overg_t=min(self.overg_t+2,256)
+ -- turn rate/second 	
+ if self.g>0.0004 then
+		self.overg_t=min(self.overg_t+2,64)
 	end
-	self.overg_t*=0.98
+	self.overg_t*=0.95
 
 	-- fire solution?
 	if self.model.wp and can_fire and self.fire_t<time_t and in_cone(self.pos,self.target.pos,fwd,0.92,24) then
@@ -783,6 +787,7 @@ _g.update_flying_npc=function(self)
 	end
 
  -- estimate position
+ --[[
 	local trp=v_clone(self.pos)
 	v_add(trp,plyr.pos,-1)
 	local trv=v_clone(fwd)
@@ -793,7 +798,10 @@ _g.update_flying_npc=function(self)
 	self.lead_pos=v_clone(self.pos)
 	v_add(self.lead_pos,trv,lead_t)
 	self.lead_t=lead_t
-	
+	]]
+ self.lead_pos=v_clone(self.pos)	
+	self.lead_t=0
+ 
 	return true
 end
 
@@ -899,7 +907,7 @@ _g.make_laser=function(self,target)
 	local wp=self.model.wp
 	local i=self.laser_i%#wp.pos+1
 	-- rebase laser in world space
-	local p={0,0,0}--v_clone(wp.pos[i])
+	local p=v_clone(wp.pos[i])
 	m_x_v(self.m,p)
 	-- direction override?
 	local v
@@ -1123,7 +1131,7 @@ _g.draw_part=function(self,x,y,z,w)
 	]]
 end
 
-all_parts=json_parse'{"laser":{"rnd":{"dly":[110,120]},"acc":1,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
+all_parts=json_parse'{"laser":{"rnd":{"dly":[40,60]},"acc":8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"ground_laser":{"rnd":{"dly":[95,120]},"acc":0.8,"kind":0,"update":"update_blt","die":"die_blt","draw":"draw_part"},"flash":{"kind":1,"rnd":{"r":[0.5,0.7],"dly":[4,6]},"dr":-0.05},"trail":{"kind":1,"rnd":{"r":[0.2,0.3],"dly":[12,24]},"dr":-0.02},"blast":{"frame":0,"sfx":3,"kind":1,"c":7,"rnd":{"r":[2.5,3],"dly":[8,12],"sparks":[6,12]},"dr":-0.04,"update":"update_blast"},"novae":{"frame":0,"sfx":9,"kind":1,"c":7,"r":30,"rnd":{"dly":[8,12],"sparks":[30,40]},"dr":-0.04,"update":"update_blast"},"proton":{"die_part":"blast","rnd":{"dly":[90,120]},"frame":0,"acc":0.6,"kind":3,"update":"update_proton","die":"die_blt","draw":"draw_part"},"spark":{"kind":6,"dr":0,"r":1,"rnd":{"dly":[24,38]}},"purple_trail":{"kind":7,"c":[14,2,5,1],"rnd":{"r":[0.35,0.4],"dly":[2,4],"dr":[-0.08,-0.05]}},"blue_trail":{"kind":7,"c":[7,12,5,1],"rnd":{"r":[0.3,0.5],"dly":[12,24],"dr":[-0.08,-0.05]}},"mfalcon_trail":{"kind":8,"r":1,"dr":0,"e":[[-3.24,0,-5.04],[3.24,0,-5.04]],"rnd":{"c":[12,7,13],"dly":[1,2]}}}'
 
 function make_part(part,p,c)
 	local pt=add(parts,clone(all_parts[part],{pos=v_clone(p),draw=_g.draw_part,c=c}))
@@ -1339,7 +1347,7 @@ function control_plyr(self)
 
 		-- boost 
 		if btn(4) then
-			plyr.boost=min(plyr.boost*1.1,plyr.acc)
+			plyr.boost=min(plyr.boost+0.05,2*plyr.acc)
 		end
 	end
 	
@@ -1390,14 +1398,14 @@ function control_plyr(self)
  		sfx(7)
  	end
  	if plyr.proton_ammo>0 and plyr.proton_t<time_t and plyr.lock_t>30 and btnp(4) then
- 		plyr:fire_proton(target)
+ 		--plyr:fire_proton(target)
  		plyr.proton_t=time_t+plyr.model.proton_wp.dly
  		plyr.proton_ammo-=1
  		plyr.energy=0
  	end
  		
  	if self.fire_t<time_t and btn(5) then 		
- 		if(plyr.energy>0.08) plyr:fire(target and target.lead_pos or nil)
+ 		if(plyr.energy>0.08) plyr:fire(target and target.pos or nil)
  		plyr.energy=max(plyr.energy-0.08)
  	end
  end
@@ -1474,7 +1482,7 @@ function draw_instr()
 			spr(40,x+w-8,y-w,1,1,true)
 			spr(40,x-w,y+w-8,1,1,false,true)
 			spr(40,x+w-8,y+w-8,1,1,true,true)
-			print(60*plyr.target.lead_t.."s",x,y-w-8,6)
+			--print(60*plyr.target.lead_t.."s",x,y-w-8,6)
 		end
 	end
 	
